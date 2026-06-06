@@ -23,9 +23,14 @@ public final class DeathRewindConfigScreen {
 		ConfigCategory general = builder.getOrCreateCategory(Component.literal("通用"));
 
 		general.addEntry(entry.startIntSlider(
-				Component.literal("回溯时长 (秒)"), config.rewindSeconds(), 1, 120)
-				.setDefaultValue(15).setTooltip(Component.literal("死亡时回溯多少秒之前的位置和状态"))
+				Component.literal("回溯时长 (秒)"), config.rewindSeconds(), 5, 300)
+				.setDefaultValue(60).setTooltip(Component.literal("死亡时回溯多少秒之前的存档点"))
 				.setSaveConsumer(config::setRewindSeconds).build());
+
+		general.addEntry(entry.startIntSlider(
+				Component.literal("存档点间隔 (秒)"), config.checkpointIntervalSeconds(), 1, 60)
+				.setDefaultValue(5).setTooltip(Component.literal("每隔多少秒创建一个存档点"))
+				.setSaveConsumer(config::setCheckpointIntervalSeconds).build());
 
 		general.addEntry(entry.startIntSlider(
 				Component.literal("最大回溯次数 (极限模式)"), config.maxRewinds(), 0, 99)
@@ -55,6 +60,11 @@ public final class DeathRewindConfigScreen {
 				Component.literal("启用客户端特效"), config.enableClientEffect())
 				.setDefaultValue(true).setTooltip(Component.literal("回溯粒子/画面特效"))
 				.setSaveConsumer(config::setEnableClientEffect).build());
+
+		fx.addEntry(entry.startBooleanToggle(
+				Component.literal("存档点提示"), config.enableSaveNotification())
+				.setDefaultValue(true).setTooltip(Component.literal("右下角显示存档点保存提示"))
+				.setSaveConsumer(config::setEnableSaveNotification).build());
 
 		ConfigCategory cooldown = builder.getOrCreateCategory(Component.literal("冷却"));
 

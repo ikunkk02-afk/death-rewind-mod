@@ -5,29 +5,29 @@ import com.ikunkk02.deathrewind.component.ModComponents;
 import com.ikunkk02.deathrewind.component.PlayerRewindComponent;
 import com.ikunkk02.deathrewind.config.DeathRewindConfig;
 import com.ikunkk02.deathrewind.network.ModNetworking;
+import com.ikunkk02.deathrewind.rewind.checkpoint.CheckpointManager;
+import com.ikunkk02.deathrewind.rewind.checkpoint.RewindCheckpoint;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.BlockPos;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 public final class RewindManager {
 	private static final int CLIENT_EFFECT_TICKS = 40;
-	private static final Map<UUID, PlayerSnapshotBuffer<PlayerSnapshot>> SNAPSHOTS = new HashMap<>();
-	private static final Map<UUID, Integer> REWIND_GENERATIONS = new HashMap<>();
+	private static final Set<UUID> REWINDING = Collections.synchronizedSet(new HashSet<>());
+	private static final Map<UUID, Map<BlockPos, CompoundTag>> PENDING_BE_RESTORE = new HashMap<>();
 	private static boolean registered;
 
 	private RewindManager() {}
@@ -40,47 +40,49 @@ public final class RewindManager {
 		ServerTickEvents.END_SERVER_TICK.register(RewindManager::tick);
 	}
 
-	public static int getRewindGeneration(UUID playerUuid) {
-		return REWIND_GENERATIONS.getOrDefault(playerUuid, 0);
+	public static boolean isRewinding(UUID playerUuid) {
+		return REWINDING.contains(playerUuid);
 	}
 
-	public static boolean tryStartDeathRewind(ServerPlayer player, DamageSource source) {
+	// --- Death interception ---
+
+	public static boolean tryStartDeathRewind(ServerPlayer player, net.minecraft.world.damagesource.DamageSource source) {
 		PlayerRewindComponent component = ModComponents.PLAYER_REWIND.get(player);
 		DeathRewindConfig config = DeathRewindConfig.get();
 		UUID uuid = player.getUUID();
 
 		if (player.gameMode() != GameType.SURVIVAL) return false;
-
-		boolean isHardcore = player.level().getLevelData().isHardcore();
-		int effectiveMax = isHardcore ? config.effectiveMaxRewinds() : 0;
-		if (isHardcore && effectiveMax > 0 && component.rewindCount() >= effectiveMax) return false;
-
-		if (component.isRewinding()) {
+		if (isRewinding(uuid)) {
 			player.setHealth(Math.max(player.getHealth(), 1.0F));
 			player.setDeltaMovement(Vec3.ZERO);
 			return true;
 		}
 
+		boolean isHardcore = player.level().getLevelData().isHardcore();
+		int effectiveMax = isHardcore ? config.effectiveMaxRewinds() : 0;
+		if (isHardcore && effectiveMax > 0 && component.rewindCount() >= effectiveMax) return false;
 		if (config.enableCooldown() && component.cooldownTicks() > 0) return false;
 
+		int timelineId = CheckpointManager.getTimeline(uuid);
 		long currentGameTime = player.level().getGameTime();
 		long targetGameTime = currentGameTime - config.rewindTicks();
-		int currentGen = getRewindGeneration(uuid);
-		PlayerSnapshotBuffer<PlayerSnapshot> buf = bufferFor(player);
 
-		Optional<PlayerSnapshot> snapshot = buf.snapshotAtOrBefore(targetGameTime, currentGen);
-		if (snapshot.isEmpty()) snapshot = buf.oldestAtOrBefore(targetGameTime);
-		if (snapshot.isEmpty()) return false;
+		Optional<RewindCheckpoint> cp = CheckpointManager.findRewindTarget(uuid, timelineId, targetGameTime);
+		if (cp.isEmpty()) return false;
 
-		PlayerSnapshot targetSnapshot = snapshot.orElseThrow();
+		RewindCheckpoint target = cp.get();
 		Vec3 startPos = player.position();
 
+		// Lock player during rewind
+		REWINDING.add(uuid);
 		component.setRewinding(true);
 		player.setHealth(1.0F);
 		player.setDeltaMovement(Vec3.ZERO);
 		player.resetFallDistance();
 
-		if (!targetSnapshot.restore(player)) {
+		// Restore player state from checkpoint
+		if (!target.playerSnapshot().restore(player)) {
+			REWINDING.remove(uuid);
 			component.setRewinding(false);
 			return false;
 		}
@@ -95,6 +97,19 @@ public final class RewindManager {
 
 		cleanupDroppedItems(player, config);
 
+		// Restore world time to checkpoint
+		var clockRegistry = player.level().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_CLOCK);
+		var overworldClock = clockRegistry.get(net.minecraft.resources.Identifier.withDefaultNamespace("overworld")).orElse(null);
+		if (overworldClock != null) {
+			player.level().clockManager().setTotalTicks(overworldClock, target.dayTime());
+		}
+
+		// Schedule block entity NBT restore (applied after block rewind completes)
+		Map<BlockPos, CompoundTag> beNbt = BlockEntitySnapshotManager.findSnapshot(uuid, target.checkpointGameTime()).orElse(null);
+		if (beNbt != null) {
+			PENDING_BE_RESTORE.put(uuid, beNbt);
+		}
+
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
 				ModSounds.REWIND_BELL, SoundSource.PLAYERS, 1.0F, 1.0F);
 
@@ -105,15 +120,18 @@ public final class RewindManager {
 		}
 
 		if (config.enableClientEffect()) {
-			ModNetworking.sendRewindStart(player, CLIENT_EFFECT_TICKS, startPos, targetSnapshot.position());
+			ModNetworking.sendRewindStart(player, CLIENT_EFFECT_TICKS, startPos, target.playerSnapshot().position());
 		}
 
-		if (!BlockRewindManager.startRestore(player, targetSnapshot, currentGameTime)) {
+		// Start block rewind using checkpoint's blockChangeLogIndex
+		if (!BlockRewindManager.startRestoreFromCheckpoint(player, target, currentGameTime)) {
 			finishRewind(player);
 		}
 
 		return true;
 	}
+
+	// --- Tick ---
 
 	private static void tick(MinecraftServer server) {
 		DeathRewindConfig config = DeathRewindConfig.get();
@@ -126,61 +144,80 @@ public final class RewindManager {
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			PlayerRewindComponent component = ModComponents.PLAYER_REWIND.get(player);
 			component.tickCooldown();
-			if (server.getTickCount() % 300 == 0 && !component.isRewinding()) {
-				captureSnapshot(player, config);
+
+			if (server.getTickCount() % config.checkpointIntervalTicks() == 0 && !isRewinding(player.getUUID())) {
+				int blockIndex = CheckpointManager.nextBlockLogIndex(player.getUUID());
+				CheckpointManager.createCheckpoint(player, blockIndex);
+				// Snapshot all block entities at the same time as checkpoint
+				BlockEntitySnapshotManager.takeSnapshot(player);
+				// Notify client HUD via action bar (auto-fades, doesn't spam chat)
+				if (config.enableSaveNotification()) {
+					player.sendSystemMessage(
+							net.minecraft.network.chat.Component.literal("§a● §7存档点已保存"),
+							true
+					);
+				}
 			}
 		}
 	}
 
+	// --- Finish rewind: advance timeline ---
+
 	private static void finishRewind(ServerPlayer player) {
 		UUID uuid = player.getUUID();
-		int newGen = REWIND_GENERATIONS.getOrDefault(uuid, 0) + 1;
-		REWIND_GENERATIONS.put(uuid, newGen);
 
+		// Advance to new timeline — clears old checkpoints, old block records
+		CheckpointManager.advanceTimeline(uuid);
+
+		// Purge old timeline's block records
 		BlockRewindManager.purgePlayerRecords(uuid);
 
-		DeathRewindConfig config = DeathRewindConfig.get();
 		PlayerRewindComponent component = ModComponents.PLAYER_REWIND.get(player);
 		component.setLastSafePos(player.blockPosition());
-		bufferFor(player, config).add(PlayerSnapshot.capture(player, player.level().getGameTime(), newGen));
 
+		// Create initial checkpoint for new timeline
+		int blockIndex = CheckpointManager.nextBlockLogIndex(uuid);
+		CheckpointManager.createCheckpoint(player, blockIndex);
+
+		// Apply pending block entity NBT restore
+		Map<BlockPos, CompoundTag> beNbt = PENDING_BE_RESTORE.remove(uuid);
+		if (beNbt != null) {
+			BlockEntitySnapshotManager.restoreBlockEntities((ServerLevel) player.level(), beNbt);
+		}
+
+		// Unlock
+		REWINDING.remove(uuid);
 		component.setRewinding(false);
 
-		if (config.enableClientEffect()) {
+		if (DeathRewindConfig.get().enableClientEffect()) {
 			ModNetworking.sendRewindEnd(player, uuid);
 		}
 	}
+
+	// --- Dropped item cleanup ---
 
 	private static void cleanupDroppedItems(ServerPlayer player, DeathRewindConfig config) {
 		int rewindTicks = config.rewindTicks();
 		int radius = config.chunkRadius() * 16;
 		AABB area = new AABB(player.blockPosition()).inflate(radius);
-
 		for (ItemEntity item : ((ServerLevel) player.level()).getEntitiesOfClass(ItemEntity.class, area)) {
 			if (item.getAge() < rewindTicks) item.discard();
 		}
 	}
 
+	// --- Player join/leave ---
+
 	private static void onPlayerJoin(ServerPlayer player) {
 		UUID uuid = player.getUUID();
-		REWIND_GENERATIONS.putIfAbsent(uuid, 0);
+		CheckpointManager.advanceTimeline(uuid); // ensure fresh timeline
 
 		boolean worldIsHardcore = player.level().getLevelData().isHardcore();
 		if (worldIsHardcore) DeathRewindConfig.lockForHardcore();
 		else DeathRewindConfig.unlock();
 
-		long currentGameTime = player.level().getGameTime();
-		PlayerSnapshotBuffer<PlayerSnapshot> buffer = SNAPSHOTS.get(uuid);
-		if (buffer != null) {
-			Optional<PlayerSnapshot> latest = buffer.latest();
-			if (latest.isPresent() && latest.get().gameTime() > currentGameTime + DeathRewindConfig.get().rewindTicks()) {
-				SNAPSHOTS.remove(uuid);
-				REWIND_GENERATIONS.put(uuid, 0);
-				ModComponents.PLAYER_REWIND.get(player).setRewindCount(0);
-			}
-		}
-
-		captureSnapshot(player, DeathRewindConfig.get());
+		// Create first checkpoint
+		int blockIndex = CheckpointManager.nextBlockLogIndex(uuid);
+		CheckpointManager.createCheckpoint(player, blockIndex);
 
 		DeathRewindConfig config = DeathRewindConfig.get();
 		PlayerRewindComponent component = ModComponents.PLAYER_REWIND.get(player);
@@ -199,26 +236,9 @@ public final class RewindManager {
 
 	private static void onPlayerLeave(ServerPlayer player) {
 		UUID uuid = player.getUUID();
+		REWINDING.remove(uuid);
 		BlockRewindManager.cancel(uuid);
+		BlockEntitySnapshotManager.clearPlayer(uuid);
 		ModComponents.PLAYER_REWIND.get(player).setRewinding(false);
-	}
-
-	private static void captureSnapshot(ServerPlayer player, DeathRewindConfig config) {
-		PlayerRewindComponent component = ModComponents.PLAYER_REWIND.get(player);
-		if (component.isRewinding() || player.isDeadOrDying()) return;
-		UUID uuid = player.getUUID();
-		int gen = getRewindGeneration(uuid);
-		component.setLastSafePos(player.blockPosition());
-		bufferFor(player, config).add(PlayerSnapshot.capture(player, player.level().getGameTime(), gen));
-	}
-
-	private static PlayerSnapshotBuffer<PlayerSnapshot> bufferFor(ServerPlayer player) {
-		return bufferFor(player, DeathRewindConfig.get());
-	}
-
-	private static PlayerSnapshotBuffer<PlayerSnapshot> bufferFor(ServerPlayer player, DeathRewindConfig config) {
-		return SNAPSHOTS.computeIfAbsent(player.getUUID(),
-				uuid -> new PlayerSnapshotBuffer<>(Math.max(3, config.rewindSeconds() + 3),
-						PlayerSnapshot::gameTime, PlayerSnapshot::rewindGeneration));
 	}
 }

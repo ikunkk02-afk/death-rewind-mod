@@ -16,7 +16,8 @@ public record BlockChangeRecord(
 		BlockState previousState,
 		@Nullable CompoundTag previousBlockEntityNbt,
 		UUID playerUuid,
-		int rewindGeneration
+		int timelineId,
+		int blockChangeLogIndex
 ) {
 	public BlockChangeRecord {
 		pos = pos.immutable();

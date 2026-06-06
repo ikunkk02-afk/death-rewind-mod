@@ -20,6 +20,7 @@ public final class DeathRewindConfig {
 	private static int lockedRewindSeconds;
 
 	private int rewindSeconds = 15;
+	private int checkpointIntervalSeconds = 5;
 	private int maxRewinds = 5;
 	private int chunkRadius = 3;
 	private int invulnerableTicks = 60;
@@ -27,6 +28,7 @@ public final class DeathRewindConfig {
 	private boolean enableBlockRewind = true;
 	private boolean enableClientEffect = true;
 	private boolean enableCooldown = false;
+	private boolean enableSaveNotification = true;
 	private int cooldownSeconds = 0;
 
 	public static DeathRewindConfig get() {
@@ -87,6 +89,7 @@ public final class DeathRewindConfig {
 
 	private DeathRewindConfig sanitized() {
 		rewindSeconds = Math.max(1, rewindSeconds);
+		checkpointIntervalSeconds = Math.max(1, checkpointIntervalSeconds);
 		maxRewinds = Math.max(0, maxRewinds);
 		chunkRadius = Math.max(1, chunkRadius);
 		invulnerableTicks = Math.max(1, invulnerableTicks);
@@ -101,6 +104,18 @@ public final class DeathRewindConfig {
 
 	public int rewindTicks() {
 		return rewindSeconds * 20;
+	}
+
+	public int checkpointIntervalSeconds() {
+		return checkpointIntervalSeconds;
+	}
+
+	public int checkpointIntervalTicks() {
+		return checkpointIntervalSeconds * 20;
+	}
+
+	public void setCheckpointIntervalSeconds(int seconds) {
+		checkpointIntervalSeconds = Math.max(1, seconds);
 	}
 
 	public int maxRewinds() {
@@ -177,6 +192,14 @@ public final class DeathRewindConfig {
 
 	public boolean enableClientEffect() {
 		return enableClientEffect;
+	}
+
+	public boolean enableSaveNotification() {
+		return enableSaveNotification;
+	}
+
+	public void setEnableSaveNotification(boolean enable) {
+		enableSaveNotification = enable;
 	}
 
 	public int chunkRadius() {
