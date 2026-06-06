@@ -1,0 +1,11 @@
+.gradle/
+build/
+run/
+*.class
+*.jar
+*.log
+bin/
+.idea/
+*.iml
+.vscode/
+src_backup*/

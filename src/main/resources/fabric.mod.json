@@ -1,0 +1,53 @@
+{
+	"schemaVersion": 1,
+	"id": "death_rewind",
+	"version": "${version}",
+	"name": "Death Rewind",
+	"description": "Rewinds players from fatal damage before vanilla death handling completes.",
+	"authors": [
+		"ikunkk02"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/ikunkk02/death-rewind"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/death_rewind/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.ikunkk02.deathrewind.DeathRewindMod"
+		],
+		"client": [
+			"com.ikunkk02.deathrewind.DeathRewindClient"
+		],
+		"modmenu": [
+			"com.ikunkk02.deathrewind.config.ModMenuIntegration"
+		],
+		"fabric-datagen": [
+			"com.ikunkk02.deathrewind.client.DeathRewindModDataGenerator"
+		],
+		"cardinal-components-entity": [
+			"com.ikunkk02.deathrewind.component.ModComponents"
+		]
+	},
+	"mixins": [
+		"death_rewind.mixins.json"
+	],
+	"custom": {
+		"cardinal-components": [
+			"death_rewind:player_rewind"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*",
+		"cardinal-components": ">=8.0.0"
+	},
+	"suggests": {
+		"modmenu": "*",
+		"cloth-config2": "*"
+	}
+}
