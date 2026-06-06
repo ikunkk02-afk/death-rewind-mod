@@ -16,7 +16,7 @@ public record RewindBlockParticlePayload(
 		ResourceKey<Level> dimension
 ) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<RewindBlockParticlePayload> TYPE =
-			new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(DeathRewindMod.MOD_ID, "rewind_block_particle"));
+			new CustomPacketPayload.Type<>(DeathRewindMod.id("rewind_block_particle"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, RewindBlockParticlePayload> STREAM_CODEC =
 			StreamCodec.of((buf, payload) -> payload.write(buf), RewindBlockParticlePayload::read);
 

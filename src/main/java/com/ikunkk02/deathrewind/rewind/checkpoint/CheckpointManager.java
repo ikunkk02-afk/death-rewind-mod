@@ -3,9 +3,13 @@ package com.ikunkk02.deathrewind.rewind.checkpoint;
 import com.ikunkk02.deathrewind.config.DeathRewindConfig;
 import com.ikunkk02.deathrewind.rewind.PlayerSnapshot;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.ChunkPos;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Manages checkpoints per player, per timeline.
@@ -20,7 +24,8 @@ public final class CheckpointManager {
 	/** playerUuid -> blockChangeLogIndex counter */
 	private static final Map<UUID, Integer> BLOCK_LOG_INDICES = new HashMap<>();
 
-	private CheckpointManager() {}
+	private CheckpointManager() {
+	}
 
 	// --- Timeline ---
 
@@ -31,20 +36,21 @@ public final class CheckpointManager {
 	public static int advanceTimeline(UUID playerUuid) {
 		int next = TIMELINES.getOrDefault(playerUuid, 0) + 1;
 		TIMELINES.put(playerUuid, next);
-		// Remove old timeline checkpoints
+
 		Map<Integer, List<RewindCheckpoint>> playerCheckpoints = CHECKPOINTS.get(playerUuid);
 		if (playerCheckpoints != null) {
-			playerCheckpoints.keySet().removeIf(tid -> tid < next);
+			playerCheckpoints.keySet().removeIf(timelineId -> timelineId < next);
 		}
+
 		return next;
 	}
 
 	// --- Block change log index ---
 
 	public static int nextBlockLogIndex(UUID playerUuid) {
-		int idx = BLOCK_LOG_INDICES.getOrDefault(playerUuid, 0);
-		BLOCK_LOG_INDICES.put(playerUuid, idx + 1);
-		return idx;
+		int index = BLOCK_LOG_INDICES.getOrDefault(playerUuid, 0);
+		BLOCK_LOG_INDICES.put(playerUuid, index + 1);
+		return index;
 	}
 
 	public static int currentBlockLogIndex(UUID playerUuid) {
@@ -62,18 +68,22 @@ public final class CheckpointManager {
 
 		PlayerSnapshot snapshot = PlayerSnapshot.capture(player, gameTime, timelineId);
 		RewindCheckpoint checkpoint = new RewindCheckpoint(
-				uuid, timelineId, gameTime, dayTime, snapshot,
+				uuid,
+				timelineId,
+				gameTime,
+				dayTime,
+				snapshot,
 				blockChangeLogIndex,
 				player.level().dimension(),
 				player.chunkPosition(),
 				config.chunkRadius()
 		);
 
-		CHECKPOINTS.computeIfAbsent(uuid, k -> new HashMap<>())
-				.computeIfAbsent(timelineId, k -> new ArrayList<>())
+		CHECKPOINTS.computeIfAbsent(uuid, key -> new HashMap<>())
+				.computeIfAbsent(timelineId, key -> new ArrayList<>())
 				.add(checkpoint);
 
-		pruneOldCheckpoints(uuid, timelineId, gameTime, config);
+		pruneOldCheckpoints(uuid, timelineId);
 	}
 
 	/**
@@ -82,37 +92,45 @@ public final class CheckpointManager {
 	 */
 	public static Optional<RewindCheckpoint> findRewindTarget(UUID playerUuid, int timelineId, long targetGameTime) {
 		Map<Integer, List<RewindCheckpoint>> playerCheckpoints = CHECKPOINTS.get(playerUuid);
-		if (playerCheckpoints == null) return Optional.empty();
+		if (playerCheckpoints == null) {
+			return Optional.empty();
+		}
 
 		List<RewindCheckpoint> timelineCheckpoints = playerCheckpoints.get(timelineId);
-		if (timelineCheckpoints == null || timelineCheckpoints.isEmpty()) return Optional.empty();
+		if (timelineCheckpoints == null || timelineCheckpoints.isEmpty()) {
+			return Optional.empty();
+		}
 
 		RewindCheckpoint candidate = null;
-		for (RewindCheckpoint cp : timelineCheckpoints) {
-			if (cp.checkpointGameTime() <= targetGameTime) {
-				candidate = cp;
+		for (RewindCheckpoint checkpoint : timelineCheckpoints) {
+			if (checkpoint.checkpointGameTime() <= targetGameTime) {
+				candidate = checkpoint;
 			} else {
 				break;
 			}
 		}
 
-		if (candidate != null) return Optional.of(candidate);
+		if (candidate != null) {
+			return Optional.of(candidate);
+		}
 
-		// Fallback: earliest checkpoint in this timeline
 		return Optional.of(timelineCheckpoints.get(0));
 	}
 
-	/** Purge old checkpoints — keep only the last 3 per timeline. */
-	private static void pruneOldCheckpoints(UUID uuid, int timelineId, long currentGameTime, DeathRewindConfig config) {
+	/** Purge old checkpoints and keep only the last 4 per timeline. */
+	private static void pruneOldCheckpoints(UUID uuid, int timelineId) {
 		Map<Integer, List<RewindCheckpoint>> playerCheckpoints = CHECKPOINTS.get(uuid);
-		if (playerCheckpoints == null) return;
+		if (playerCheckpoints == null) {
+			return;
+		}
 
-		List<RewindCheckpoint> list = playerCheckpoints.get(timelineId);
-		if (list == null) return;
+		List<RewindCheckpoint> checkpoints = playerCheckpoints.get(timelineId);
+		if (checkpoints == null) {
+			return;
+		}
 
-		// Keep only the most recent 3 checkpoints
-		while (list.size() > 3) {
-			list.remove(0);
+		while (checkpoints.size() > 4) {
+			checkpoints.remove(0);
 		}
 	}
 
@@ -128,10 +146,7 @@ public final class CheckpointManager {
 		Map<Integer, List<RewindCheckpoint>> playerCheckpoints = CHECKPOINTS.get(playerUuid);
 		if (playerCheckpoints != null) {
 			int current = getTimeline(playerUuid);
-			playerCheckpoints.keySet().removeIf(tid -> tid < current);
+			playerCheckpoints.keySet().removeIf(timelineId -> timelineId < current);
 		}
 	}
-
-	// --- Bridge to old PlayerSnapshot system for PlayerSnapshotBuffer (removed)
-	// The RewindManager now uses CheckpointManager directly instead of PlayerSnapshotBuffer.
 }

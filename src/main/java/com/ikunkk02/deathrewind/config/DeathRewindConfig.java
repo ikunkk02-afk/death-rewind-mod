@@ -44,14 +44,21 @@ public final class DeathRewindConfig {
 		}
 	}
 
-	public static boolean isLocked() { return locked; }
+	public static boolean isLocked() {
+		return locked;
+	}
 
 	public static void unlock() {
 		locked = false;
 	}
 
-	public int effectiveMaxRewinds() { return locked ? lockedMaxRewinds : maxRewinds; }
-	public int effectiveRewindSeconds() { return locked ? lockedRewindSeconds : rewindSeconds; }
+	public int effectiveMaxRewinds() {
+		return locked ? lockedMaxRewinds : maxRewinds;
+	}
+
+	public int effectiveRewindSeconds() {
+		return locked ? lockedRewindSeconds : rewindSeconds;
+	}
 
 	public static void load() {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);

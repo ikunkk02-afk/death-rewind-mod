@@ -13,12 +13,20 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public final class BlockRewindManager {
 	private static final Identifier RESTORE_PARTICLE = Identifier.withDefaultNamespace("reverse_portal");
@@ -26,17 +34,25 @@ public final class BlockRewindManager {
 	private static final Map<UUID, RewindExecutor> EXECUTORS = new HashMap<>();
 	private static boolean restoring;
 
-	private BlockRewindManager() {}
+	private BlockRewindManager() {
+	}
 
 	// --- Record block changes ---
 
 	public static void recordBeforeChange(ServerLevel level, BlockPos pos, BlockState newState) {
 		DeathRewindConfig config = DeathRewindConfig.get();
-		if (!config.enableBlockRewind() || restoring) return;
-		if (level.isOutsideBuildHeight(pos) || !level.isLoaded(pos)) return;
+		if (!config.enableBlockRewind() || restoring) {
+			return;
+		}
+
+		if (level.isOutsideBuildHeight(pos) || !level.isLoaded(pos)) {
+			return;
+		}
 
 		BlockState previousState = level.getBlockState(pos);
-		if (previousState.equals(newState)) return;
+		if (previousState.equals(newState)) {
+			return;
+		}
 
 		BlockEntity blockEntity = level.getBlockEntity(pos);
 		CompoundTag blockEntityNbt = blockEntity == null ? null : blockEntity.saveWithFullMetadata(level.registryAccess());
@@ -45,8 +61,13 @@ public final class BlockRewindManager {
 
 		boolean anyRecorded = false;
 		for (ServerPlayer player : level.players()) {
-			if (player.isDeadOrDying()) continue;
-			if (!RewindManager.isRewinding(player.getUUID()) && player.gameMode() != net.minecraft.world.level.GameType.SURVIVAL) continue;
+			if (player.isDeadOrDying()) {
+				continue;
+			}
+
+			if (!RewindManager.isRewinding(player.getUUID()) && player.gameMode() != GameType.SURVIVAL) {
+				continue;
+			}
 
 			UUID playerUuid = player.getUUID();
 			int timelineId = CheckpointManager.getTimeline(playerUuid);
@@ -67,9 +88,11 @@ public final class BlockRewindManager {
 
 	// --- Start restore from checkpoint ---
 
-	public static boolean startRestoreFromCheckpoint(ServerPlayer player, RewindCheckpoint checkpoint, long currentGameTime) {
+	public static boolean startRestoreFromCheckpoint(ServerPlayer player, RewindCheckpoint checkpoint) {
 		DeathRewindConfig config = DeathRewindConfig.get();
-		if (!config.enableBlockRewind()) return false;
+		if (!config.enableBlockRewind()) {
+			return false;
+		}
 
 		UUID playerUuid = player.getUUID();
 		int logIndex = checkpoint.blockChangeLogIndex();
@@ -93,7 +116,9 @@ public final class BlockRewindManager {
 			}
 		}
 
-		if (matches.isEmpty()) return false;
+		if (matches.isEmpty()) {
+			return false;
+		}
 
 		EXECUTORS.put(playerUuid, new RewindExecutor(playerUuid, dimension, matches));
 		return true;
@@ -130,7 +155,9 @@ public final class BlockRewindManager {
 	static void restoreRecord(ServerLevel level, BlockChangeRecord record) {
 		if (!level.dimension().equals(record.dimension())
 				|| level.isOutsideBuildHeight(record.pos())
-				|| !level.isLoaded(record.pos())) return;
+				|| !level.isLoaded(record.pos())) {
+			return;
+		}
 
 		restoring = true;
 		try {

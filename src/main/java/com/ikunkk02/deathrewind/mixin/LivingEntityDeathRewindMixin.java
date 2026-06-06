@@ -19,7 +19,10 @@ public abstract class LivingEntityDeathRewindMixin {
 			)
 	)
 	private boolean deathRewind$rewindBeforeDeath(LivingEntity instance, DamageSource source, Operation<Boolean> original) {
-		if (original.call(instance, source)) return true;
+		if (original.call(instance, source)) {
+			return true;
+		}
+
 		if (instance instanceof ServerPlayer player) {
 			return RewindManager.tryStartDeathRewind(player, source);
 		}

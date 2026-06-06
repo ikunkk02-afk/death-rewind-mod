@@ -4,14 +4,13 @@ import com.ikunkk02.deathrewind.DeathRewindMod;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.UUID;
 
 public record RewindStartPayload(UUID playerUuid, int durationTicks, Vec3 startPos, Vec3 endPos) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<RewindStartPayload> TYPE =
-			new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(DeathRewindMod.MOD_ID, "rewind_start"));
+			new CustomPacketPayload.Type<>(DeathRewindMod.id("rewind_start"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, RewindStartPayload> STREAM_CODEC =
 			StreamCodec.of((buf, payload) -> payload.write(buf), RewindStartPayload::read);
 

@@ -61,7 +61,7 @@ dependencies {
 	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 
-	// Cloth Config + Mod Menu (optional, for in-game config screen — jars in run/mods/)
+	// Cloth Config + Mod Menu (optional, for in-game config screen; jars in run/mods/)
 	compileOnly files("run/mods/cloth-config-26.1.154.jar")
 	compileOnly files("run/mods/modmenu-18.0.0-beta.1.jar")
 }

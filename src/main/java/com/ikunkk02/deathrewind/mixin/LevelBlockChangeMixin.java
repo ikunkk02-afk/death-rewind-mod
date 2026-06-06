@@ -12,8 +12,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Level.class)
 public abstract class LevelBlockChangeMixin {
-	@Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z", at = @At("HEAD"))
-	private void deathRewind$recordPreviousBlockState(BlockPos pos, BlockState state, int flags, int recursionLeft, CallbackInfoReturnable<Boolean> cir) {
+	@Inject(
+			method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
+			at = @At("HEAD")
+	)
+	private void deathRewind$recordPreviousBlockState(
+			BlockPos pos,
+			BlockState state,
+			int flags,
+			int recursionLeft,
+			CallbackInfoReturnable<Boolean> cir
+	) {
 		if ((Object) this instanceof ServerLevel level) {
 			BlockRewindManager.recordBeforeChange(level, pos, state);
 		}
