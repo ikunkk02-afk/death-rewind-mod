@@ -45,6 +45,15 @@ public final class BlockRewindManager {
 			return;
 		}
 
+		// C2ME and some optimization mods may call block changes off the main server thread.
+		// In compatibility mode, do not touch player lists or block entities from those
+		// threads; missing one async record is much better than occasionally blocking
+		// normal block placement.
+		MinecraftServer server = level.getServer();
+		if (config.optimizationModCompatibility() && server != null && !server.isSameThread()) {
+			return;
+		}
+
 		if (level.isOutsideBuildHeight(pos) || !level.isLoaded(pos)) {
 			return;
 		}
@@ -54,12 +63,11 @@ public final class BlockRewindManager {
 			return;
 		}
 
-		BlockEntity blockEntity = level.getBlockEntity(pos);
-		CompoundTag blockEntityNbt = blockEntity == null ? null : blockEntity.saveWithFullMetadata(level.registryAccess());
-		long gameTime = level.getGameTime();
 		ResourceKey<Level> dimension = level.dimension();
+		ChunkPos changedChunk = ChunkPos.containing(pos);
+		int radius = config.chunkRadius();
+		List<RecordTarget> targets = new ArrayList<>();
 
-		boolean anyRecorded = false;
 		for (ServerPlayer player : level.players()) {
 			if (player.isDeadOrDying()) {
 				continue;
@@ -69,20 +77,34 @@ public final class BlockRewindManager {
 				continue;
 			}
 
-			UUID playerUuid = player.getUUID();
-			int timelineId = CheckpointManager.getTimeline(playerUuid);
-			int logIndex = CheckpointManager.currentBlockLogIndex(playerUuid);
+			if (!isInChunkWindow(player.chunkPosition(), changedChunk, radius)) {
+				continue;
+			}
 
-			RECORDS.addLast(new BlockChangeRecord(gameTime, dimension, pos, previousState, blockEntityNbt,
-					playerUuid, timelineId, logIndex));
-			anyRecorded = true;
+			UUID playerUuid = player.getUUID();
+			targets.add(new RecordTarget(
+					playerUuid,
+					CheckpointManager.getTimeline(playerUuid),
+					CheckpointManager.currentBlockLogIndex(playerUuid)
+			));
 		}
 
-		if (anyRecorded) {
-			long cutoff = gameTime - config.rewindTicks() * 2; // keep extra buffer
-			while (!RECORDS.isEmpty() && RECORDS.peekFirst().gameTime() < cutoff) {
-				RECORDS.removeFirst();
-			}
+		if (targets.isEmpty()) {
+			return;
+		}
+
+		BlockEntity blockEntity = level.getBlockEntity(pos);
+		CompoundTag blockEntityNbt = blockEntity == null ? null : blockEntity.saveWithFullMetadata(level.registryAccess());
+		long gameTime = level.getGameTime();
+
+		for (RecordTarget target : targets) {
+			RECORDS.addLast(new BlockChangeRecord(gameTime, dimension, pos, previousState, blockEntityNbt,
+					target.playerUuid(), target.timelineId(), target.blockLogIndex()));
+		}
+
+		long cutoff = gameTime - config.rewindTicks() * 2; // keep extra buffer
+		while (!RECORDS.isEmpty() && RECORDS.peekFirst().gameTime() < cutoff) {
+			RECORDS.removeFirst();
 		}
 	}
 
@@ -192,9 +214,15 @@ public final class BlockRewindManager {
 	}
 
 	private static boolean isInChunkWindow(ChunkPos center, BlockPos pos, int radius) {
-		ChunkPos target = ChunkPos.containing(pos);
+		return isInChunkWindow(center, ChunkPos.containing(pos), radius);
+	}
+
+	private static boolean isInChunkWindow(ChunkPos center, ChunkPos target, int radius) {
 		int dx = target.x() - center.x();
 		int dz = target.z() - center.z();
 		return dx >= -radius && dx < radius && dz >= -radius && dz < radius;
+	}
+
+	private record RecordTarget(UUID playerUuid, int timelineId, int blockLogIndex) {
 	}
 }

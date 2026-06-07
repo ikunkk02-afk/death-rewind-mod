@@ -1,5 +1,6 @@
 package com.ikunkk02.deathrewind.mixin;
 
+import com.ikunkk02.deathrewind.DeathRewindMod;
 import com.ikunkk02.deathrewind.rewind.BlockRewindManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -24,7 +25,11 @@ public abstract class LevelBlockChangeMixin {
 			CallbackInfoReturnable<Boolean> cir
 	) {
 		if ((Object) this instanceof ServerLevel level) {
-			BlockRewindManager.recordBeforeChange(level, pos, state);
+			try {
+				BlockRewindManager.recordBeforeChange(level, pos, state);
+			} catch (Exception e) {
+				DeathRewindMod.LOGGER.warn("Failed to record block change at {}", pos, e);
+			}
 		}
 	}
 }

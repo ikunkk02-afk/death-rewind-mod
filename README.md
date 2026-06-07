@@ -1,101 +1,160 @@
-# Death Rewind Mod
+# Death Rewind / 死亡回溯
 
-死亡回溯模组 — 当你受到致命伤害时，自动回溯到数秒前的状态。
+一个 Fabric 单人向死亡回溯模组。
 
-[English](#english) | [中文](#chinese)
+玩家受到致命伤害时，模组不会立刻让你死亡，而是把你拉回几秒前的状态：位置、血量、背包、经验、世界时间，以及玩家附近的方块变化都会尽量恢复。简单说，就是给生存档加一个“死前倒带”。
 
 ---
 
-## 中文
+## 中文介绍
 
-### 功能
+### 这个模组是干什么的？
 
-- **死亡回溯**：受到致死伤害时自动回退到指定秒数前的状态（位置、生命、背包、经验）
-- **方块回溯**：玩家破坏/放置的方块也会一起回退
-- **掉落物清理**：回溯时自动清除回溯窗口内的掉落物，防止物品复制
-- **图腾效果**：回溯后获得生命吸收 II + 生命恢复 II（等同不死图腾）
-- **10 秒无敌**：回溯后短暂无敌，防止连续暴毙
+死亡回溯会持续保存玩家最近的安全状态。默认每 5 秒保存一个存档点，死亡时回到约 15 秒前。
 
-### 模式
+回溯时会恢复：
 
-| 模式 | 回溯次数 | 配置 |
-|------|---------|------|
-| 生存 / 创造 | 无限 | 可随时调整 |
-| 极限 | 默认 5 次（可配） | 进世界后锁死，开新档才生效 |
+- 玩家位置
+- 血量、饥饿值、经验、背包
+- 世界时间
+- 玩家附近的方块变化
+- 箱子等方块实体的 NBT 数据
+- 回溯窗口内新掉落的物品会被清理，避免刷物品
 
-### 配置
+回溯完成后，玩家会获得短暂无敌和类似不死图腾的恢复效果，避免刚回去又被秒杀。
 
-- **Mod Menu + Cloth Config**：游戏中可视化配置界面
-- **配置文件**：`config/death_rewind.json`
-- **命令**：`/deathrewind` — 查看状态，`/deathrewind set <次数>` — 设置极限模式次数
+### 模式规则
 
-### 配置项
+普通生存世界里，默认可以无限回溯。
 
-| 配置 | 默认值 | 说明 |
-|------|--------|------|
-| 回溯时长 | 15 秒 | 死亡回退多少秒 |
-| 最大回溯次数 | 5 | 仅极限模式生效 |
-| 方块回溯 | 开 | 是否回溯方块变化 |
-| 区块半径 | 3 | 追踪方块变化的范围 |
-| 客户端特效 | 开 | 回溯画面效果 |
-| 冷却 | 关 | 两次回溯间需等待 |
+极限模式里，默认最多回溯 5 次。进入极限世界后，最大次数和回溯时长会被锁定，防止玩家临死前临时改配置作弊；想改规则需要开新世界。
 
-### 音效
+### 方块回溯范围
 
-回溯成功时播放钟声音效（From [SoundReality](https://pixabay.com/users/soundreality-31052304/) on Pixabay）。
+方块不是全世界记录，而是记录玩家附近的区块。
+
+默认区块半径是 3，约等于玩家附近 6×6 个区块，也就是大约 96×96 格的水平范围。这样可以在保留“死亡后周围环境回到过去”的效果时，避免记录整个世界导致卡顿。
+
+### C2ME / 优化模组兼容说明
+
+本模组暂不支持 C2ME 下的完整方块回溯。
+
+C2ME 可能会把一些世界逻辑放到非主线程执行，而 Minecraft 的玩家列表、方块实体 NBT、世界方块状态并不适合在这些线程里随便读取。为了避免出现偶发不能放方块、方块记录冲突、整合包线程异常等问题：
+
+检测到 C2ME 时，模组会自动关闭“方块回溯/方块检测”，并在玩家进世界时提示。
+
+这不会关闭死亡回溯本体。玩家位置、背包、血量、经验、世界时间等仍然会回溯，只是方块变化不会自动倒回。
+
+如果你仍然想强行启用方块回溯，可以在配置里：
+
+1. 关闭“优化模组兼容模式”
+2. 再打开“启用方块回溯”
+
+不推荐在大型整合包里强行打开。打开后如果出现不能放方块或回溯异常，建议重新开启“优化模组兼容模式”。
+
+### 配置方式
+
+支持 Mod Menu + Cloth Config 的游戏内配置界面。
+
+配置文件位置：
+
+`config/death_rewind.json`
+
+命令：
+
+- `/deathrewind` 查看当前状态
+- `/deathrewind set <次数>` 设置极限模式最大回溯次数
+- `/deathrewind reload` 重新加载配置
+
+### 主要配置项
+
+- 回溯时长：默认 15 秒
+- 存档点间隔：默认 5 秒
+- 最大回溯次数：默认 5，仅极限模式生效
+- 启用方块回溯：默认开，但检测到 C2ME 且兼容模式开启时会自动关闭
+- 优化模组兼容模式：默认开，用来规避 C2ME 等优化模组导致的方块记录问题
+- 区块半径：默认 3
+- 每刻最大恢复方块数：默认 128
+- 客户端特效：默认开
+- 存档点通知：默认开
+- 冷却：默认关
 
 ### 依赖
 
-- **Minecraft** 26.1.2
-- **Fabric Loader** >= 0.19.3
-- **Fabric API**
-- **Cardinal Components** >= 8.0.0
-- **Java** >= 25
+必需：
+
+- Minecraft 26.1.2
+- Fabric Loader >= 0.19.3
+- Fabric API
+- Cardinal Components >= 8.0.0
+- Java >= 25
 
 可选：
-- **Mod Menu** — 模组列表中的配置按钮
-- **Cloth Config** — 可视化配置界面
 
-### 许可证
+- Mod Menu：在模组列表里打开配置界面
+- Cloth Config：可视化配置界面
 
-MIT License
+### 音效来源
+
+回溯完成音效来自 Pixabay：SoundReality。
 
 ---
 
 ## English
 
+Death Rewind is a single-player Fabric mod that rewinds the player when fatal damage would normally kill them.
+
+Instead of dying immediately, the player is restored to a recent checkpoint. The mod restores player state, inventory, XP, position, world time, and nearby block changes when block rewind is enabled.
+
 ### Features
 
-- **Death Rewind**: Automatically rewinds to a previous state before fatal damage (position, health, inventory, XP)
-- **Block Rewind**: Blocks broken/placed by the player are also restored
-- **Item Cleanup**: Dropped items within the rewind window are removed to prevent duplication
-- **Totem Effects**: Absorption II + Regeneration II after rewind
-- **10s Invulnerability**: Short invulnerability after rewind to prevent chain deaths
+- Automatic rewind on fatal damage
+- Restores position, health, hunger, inventory, XP, and world time
+- Optional nearby block rewind
+- Block entity NBT snapshots for containers and similar blocks
+- Dropped-item cleanup to reduce duplication issues
+- Short invulnerability after rewinding
+- Action-bar checkpoint notifications
+- Rewind sound and client visual effects
 
-### Modes
+### C2ME / optimization mod warning
 
-| Mode | Rewinds | Config |
-|------|---------|--------|
-| Survival / Creative | Unlimited | Adjustable anytime |
-| Hardcore | 5 by default | Locked on world enter, applies to new worlds |
+Block rewind is not officially supported with C2ME.
+
+C2ME may run some world logic off the main server thread. Reading player lists, block entity NBT, and world block state from those paths can cause unstable behavior in large modpacks. To avoid occasional block placement failures or thread-related issues, Death Rewind automatically disables block rewind when C2ME is detected and Optimization Mod Compatibility is enabled.
+
+The core death rewind still works: position, inventory, health, XP, and world time can still be restored. Only block tracking is disabled.
+
+If you want to force-enable block rewind anyway, open the config screen, disable “Optimization Mod Compatibility”, and then enable “Block Rewind” again. This is not recommended for large modpacks.
 
 ### Configuration
 
-- **Mod Menu + Cloth Config**: In-game config GUI
-- **Config file**: `config/death_rewind.json`
-- **Command**: `/deathrewind` — view status, `/deathrewind set <count>` — set hardcore limit
+In-game config is available through Mod Menu + Cloth Config.
+
+Config file:
+
+`config/death_rewind.json`
+
+Commands:
+
+- `/deathrewind` shows current status
+- `/deathrewind set <count>` sets the hardcore rewind limit
+- `/deathrewind reload` reloads the config
 
 ### Dependencies
 
-- **Minecraft** 26.1.2
-- **Fabric Loader** >= 0.19.3
-- **Fabric API**
-- **Cardinal Components** >= 8.0.0
-- **Java** >= 25
+Required:
+
+- Minecraft 26.1.2
+- Fabric Loader >= 0.19.3
+- Fabric API
+- Cardinal Components >= 8.0.0
+- Java >= 25
 
 Optional:
-- **Mod Menu**
-- **Cloth Config**
+
+- Mod Menu
+- Cloth Config
 
 ### License
 

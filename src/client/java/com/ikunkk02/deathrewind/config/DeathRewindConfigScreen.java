@@ -13,11 +13,11 @@ public final class DeathRewindConfigScreen {
 	public static Screen create(Screen parent) {
 		DeathRewindConfig config = DeathRewindConfig.get();
 		boolean locked = DeathRewindConfig.isLocked();
-		String title = locked ? "死亡回溯 [已锁定]" : "死亡回溯";
+		String titleKey = locked ? "text.death_rewind.config.title_locked" : "text.death_rewind.config.title";
 
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
-				.setTitle(Component.literal(title))
+				.setTitle(Component.translatable(titleKey))
 				.setSavingRunnable(() -> {
 					if (!locked) {
 						DeathRewindConfig.save();
@@ -25,113 +25,126 @@ public final class DeathRewindConfigScreen {
 				});
 
 		ConfigEntryBuilder entry = builder.entryBuilder();
-		ConfigCategory general = builder.getOrCreateCategory(Component.literal("General"));
+		ConfigCategory general = builder.getOrCreateCategory(
+				Component.translatable("text.death_rewind.config.category.general"));
 
 		general.addEntry(entry.startIntSlider(
-						Component.literal("Rewind Duration (seconds)"),
+						Component.translatable("text.death_rewind.config.rewind_duration"),
 						config.rewindSeconds(),
 						5,
 						300
 				)
 				.setDefaultValue(15)
-				.setTooltip(Component.literal("How far back the player rewinds after death."))
+				.setTooltip(Component.translatable("text.death_rewind.config.rewind_duration.tooltip"))
 				.setSaveConsumer(config::setRewindSeconds)
 				.build());
 
 		general.addEntry(entry.startIntSlider(
-						Component.literal("Checkpoint Interval (seconds)"),
+						Component.translatable("text.death_rewind.config.checkpoint_interval"),
 						config.checkpointIntervalSeconds(),
 						1,
 						60
 				)
 				.setDefaultValue(5)
-				.setTooltip(Component.literal("How often a new checkpoint is created."))
+				.setTooltip(Component.translatable("text.death_rewind.config.checkpoint_interval.tooltip"))
 				.setSaveConsumer(config::setCheckpointIntervalSeconds)
 				.build());
 
 		general.addEntry(entry.startIntSlider(
-						Component.literal("Max Rewinds (hardcore)"),
+						Component.translatable("text.death_rewind.config.max_rewinds"),
 						config.maxRewinds(),
 						0,
 						99
 				)
 				.setDefaultValue(5)
-				.setTooltip(Component.literal("Only applies in hardcore worlds. 0 means unlimited."))
+				.setTooltip(Component.translatable("text.death_rewind.config.max_rewinds.tooltip"))
 				.setSaveConsumer(config::setMaxRewinds)
 				.build());
 
-		ConfigCategory blocks = builder.getOrCreateCategory(Component.literal("Block Rewind"));
+		ConfigCategory blocks = builder.getOrCreateCategory(
+				Component.translatable("text.death_rewind.config.category.block_rewind"));
 
 		blocks.addEntry(entry.startBooleanToggle(
-						Component.literal("Enable Block Rewind"),
+						Component.translatable("text.death_rewind.config.enable_block_rewind"),
 						config.enableBlockRewind()
 				)
 				.setDefaultValue(true)
-				.setTooltip(Component.literal("Restore changed blocks near the player during rewind."))
+				.setTooltip(Component.translatable("text.death_rewind.config.enable_block_rewind.tooltip"))
 				.setSaveConsumer(config::setEnableBlockRewind)
 				.build());
 
+		blocks.addEntry(entry.startBooleanToggle(
+						Component.translatable("text.death_rewind.config.optimization_mod_compatibility"),
+						config.optimizationModCompatibility()
+				)
+				.setDefaultValue(true)
+				.setTooltip(Component.translatable("text.death_rewind.config.optimization_mod_compatibility.tooltip"))
+				.setSaveConsumer(config::setOptimizationModCompatibility)
+				.build());
+
 		blocks.addEntry(entry.startIntSlider(
-						Component.literal("Chunk Radius"),
+						Component.translatable("text.death_rewind.config.chunk_radius"),
 						config.chunkRadius(),
 						1,
 						16
 				)
 				.setDefaultValue(3)
-				.setTooltip(Component.literal("How many chunks around the player are tracked."))
+				.setTooltip(Component.translatable("text.death_rewind.config.chunk_radius.tooltip"))
 				.setSaveConsumer(config::setChunkRadius)
 				.build());
 
 		blocks.addEntry(entry.startIntSlider(
-						Component.literal("Max Blocks Restored Per Tick"),
+						Component.translatable("text.death_rewind.config.max_blocks_per_tick"),
 						config.maxBlocksRestorePerTick(),
 						1,
 						1024
 				)
 				.setDefaultValue(128)
-				.setTooltip(Component.literal("Higher values restore faster but may cause lag."))
+				.setTooltip(Component.translatable("text.death_rewind.config.max_blocks_per_tick.tooltip"))
 				.setSaveConsumer(config::setMaxBlocksRestorePerTick)
 				.build());
 
-		ConfigCategory effects = builder.getOrCreateCategory(Component.literal("Effects"));
+		ConfigCategory effects = builder.getOrCreateCategory(
+				Component.translatable("text.death_rewind.config.category.effects"));
 
 		effects.addEntry(entry.startBooleanToggle(
-						Component.literal("Enable Client Effects"),
+						Component.translatable("text.death_rewind.config.enable_client_effects"),
 						config.enableClientEffect()
 				)
 				.setDefaultValue(true)
-				.setTooltip(Component.literal("Show rewind particles and screen effects."))
+				.setTooltip(Component.translatable("text.death_rewind.config.enable_client_effects.tooltip"))
 				.setSaveConsumer(config::setEnableClientEffect)
 				.build());
 
 		effects.addEntry(entry.startBooleanToggle(
-						Component.literal("Checkpoint Notification"),
+						Component.translatable("text.death_rewind.config.checkpoint_notification"),
 						config.enableSaveNotification()
 				)
 				.setDefaultValue(true)
-				.setTooltip(Component.literal("Show an action-bar message when checkpoints are saved."))
+				.setTooltip(Component.translatable("text.death_rewind.config.checkpoint_notification.tooltip"))
 				.setSaveConsumer(config::setEnableSaveNotification)
 				.build());
 
-		ConfigCategory cooldown = builder.getOrCreateCategory(Component.literal("Cooldown"));
+		ConfigCategory cooldown = builder.getOrCreateCategory(
+				Component.translatable("text.death_rewind.config.category.cooldown"));
 
 		cooldown.addEntry(entry.startBooleanToggle(
-						Component.literal("Enable Cooldown"),
+						Component.translatable("text.death_rewind.config.enable_cooldown"),
 						config.enableCooldown()
 				)
 				.setDefaultValue(false)
-				.setTooltip(Component.literal("Require a delay between rewinds."))
+				.setTooltip(Component.translatable("text.death_rewind.config.enable_cooldown.tooltip"))
 				.setSaveConsumer(config::setEnableCooldown)
 				.build());
 
 		cooldown.addEntry(entry.startIntSlider(
-						Component.literal("Cooldown Duration (seconds)"),
+						Component.translatable("text.death_rewind.config.cooldown_duration"),
 						config.cooldownSeconds(),
 						0,
 						300
 				)
 				.setDefaultValue(0)
-				.setTooltip(Component.literal("Delay between two rewinds."))
+				.setTooltip(Component.translatable("text.death_rewind.config.cooldown_duration.tooltip"))
 				.setSaveConsumer(config::setCooldownSeconds)
 				.build());
 

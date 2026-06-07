@@ -34,7 +34,7 @@ public final class DeathRewindCommand {
 	private static int showStatus(CommandSourceStack source) {
 		ServerPlayer player = source.getPlayer();
 		if (player == null) {
-			source.sendFailure(Component.literal("该命令只能由玩家使用。"));
+			source.sendFailure(Component.translatable("text.death_rewind.cmd.player_only"));
 			return 0;
 		}
 
@@ -44,15 +44,14 @@ public final class DeathRewindCommand {
 		int max = config.maxRewinds();
 		boolean isHardcore = player.level().getLevelData().isHardcore();
 		String limit = (!isHardcore || max == 0)
-				? "无限"
-				: String.format("已用 %d/%d，剩余 %d", used, max, Math.max(0, max - used));
+				? Component.translatable("text.death_rewind.cmd.unlimited").getString()
+				: Component.translatable("text.death_rewind.cmd.used_format", used, max, Math.max(0, max - used)).getString();
 
-		source.sendSuccess(() -> Component.literal(String.format(
-				"=== 死亡回溯 ===\n  次数：%s  回溯：%d秒  无敌：%.1f秒",
+		source.sendSuccess(() -> Component.translatable("text.death_rewind.cmd.status",
 				limit,
 				config.rewindSeconds(),
 				config.invulnerableTicks() / 20.0F
-		)), false);
+		), false);
 
 		return 1;
 	}
@@ -60,15 +59,13 @@ public final class DeathRewindCommand {
 	private static int setMaxRewinds(CommandSourceStack source, int count) {
 		DeathRewindConfig config = DeathRewindConfig.get();
 		config.setMaxRewinds(count);
-		source.sendSuccess(() -> Component.literal(
-				String.format("[死亡回溯] 最大回溯次数已设置为 %d。", count)
-		), true);
+		source.sendSuccess(() -> Component.translatable("text.death_rewind.cmd.set", count), true);
 		return 1;
 	}
 
 	private static int reloadConfig(CommandSourceStack source) {
 		DeathRewindConfig.load();
-		source.sendSuccess(() -> Component.literal("[死亡回溯] 配置已重新加载。"), true);
+		source.sendSuccess(() -> Component.translatable("text.death_rewind.cmd.reloaded"), true);
 		return 1;
 	}
 }

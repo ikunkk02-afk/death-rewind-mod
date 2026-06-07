@@ -1,5 +1,6 @@
 package com.ikunkk02.deathrewind.rewind;
 
+import com.ikunkk02.deathrewind.DeathRewindMod;
 import com.ikunkk02.deathrewind.ModSounds;
 import com.ikunkk02.deathrewind.component.ModComponents;
 import com.ikunkk02.deathrewind.component.PlayerRewindComponent;
@@ -10,9 +11,11 @@ import com.ikunkk02.deathrewind.rewind.checkpoint.RewindCheckpoint;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -137,25 +140,22 @@ public final class RewindManager {
 			PENDING_BE_RESTORE.put(uuid, beNbt);
 		}
 
-		player.level().playSound(
-				null,
+		// Send sound directly to the player's client for reliable delivery.
+		player.connection.send(new ClientboundSoundPacket(
+				BuiltInRegistries.SOUND_EVENT.wrapAsHolder(ModSounds.REWIND_BELL),
+				SoundSource.MASTER,
 				player.getX(),
 				player.getY(),
 				player.getZ(),
-				ModSounds.REWIND_BELL,
-				SoundSource.PLAYERS,
+				1.5F,
 				1.0F,
-				1.0F
-		);
+				player.getRandom().nextLong()
+		));
 
 		if (isHardcore && effectiveMax > 0) {
 			int remaining = Math.max(0, effectiveMax - component.rewindCount());
 			player.sendSystemMessage(
-					Component.literal(String.format(
-							"[死亡回溯] 极限模式剩余回溯次数：%d/%d",
-							remaining,
-							effectiveMax
-					)),
+					Component.translatable("text.death_rewind.hardcore_remaining", remaining, effectiveMax),
 					false
 			);
 		}
@@ -197,7 +197,7 @@ public final class RewindManager {
 
 				if (config.enableSaveNotification()) {
 					player.sendSystemMessage(
-							Component.literal("§8[§a●§8] §7存档点已保存"),
+							Component.translatable("text.death_rewind.checkpoint_saved"),
 							true
 					);
 				}
@@ -234,6 +234,11 @@ public final class RewindManager {
 		if (DeathRewindConfig.get().enableClientEffect()) {
 			ModNetworking.sendRewindEnd(player, uuid);
 		}
+
+		player.sendSystemMessage(
+				Component.translatable("text.death_rewind.rewind_complete"),
+				true
+		);
 	}
 
 	// --- Dropped item cleanup ---
@@ -271,24 +276,22 @@ public final class RewindManager {
 		String limitInfo;
 		if (isHardcore && config.effectiveMaxRewinds() > 0) {
 			int remaining = Math.max(0, config.effectiveMaxRewinds() - component.rewindCount());
-			limitInfo = String.format(
-					"极限剩余：%d/%d",
-					remaining,
-					config.effectiveMaxRewinds()
-			);
+			limitInfo = Component.translatable("text.death_rewind.cmd.used_format", component.rewindCount(), config.effectiveMaxRewinds(), remaining).getString();
 		} else {
-			limitInfo = "无限回溯";
+			limitInfo = Component.translatable("text.death_rewind.join_unlimited").getString();
 		}
 
 		player.sendSystemMessage(
-				Component.literal(String.format(
-						"[死亡回溯] %s | 回溯：%d秒 | 无敌：%.1f秒",
-						limitInfo,
-						config.rewindSeconds(),
-						config.invulnerableTicks() / 20.0F
-				)),
+				Component.translatable("text.death_rewind.join_info", limitInfo, config.rewindSeconds(), config.invulnerableTicks() / 20.0F),
 				false
 		);
+
+		if (DeathRewindMod.isC2meDetected()) {
+			String messageKey = DeathRewindMod.c2meDisabledBlockRewind()
+					? "text.death_rewind.c2me_block_rewind_disabled"
+					: "text.death_rewind.c2me_detected";
+			player.sendSystemMessage(Component.translatable(messageKey), false);
+		}
 	}
 
 	private static void onPlayerLeave(ServerPlayer player) {
