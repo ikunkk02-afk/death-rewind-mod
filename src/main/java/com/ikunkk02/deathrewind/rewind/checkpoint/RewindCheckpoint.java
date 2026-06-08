@@ -1,7 +1,6 @@
 package com.ikunkk02.deathrewind.rewind.checkpoint;
 
 import com.ikunkk02.deathrewind.rewind.PlayerSnapshot;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -22,4 +21,5 @@ public record RewindCheckpoint(
 		ResourceKey<Level> dimension,
 		ChunkPos centerChunk,
 		int chunkRadius
-) {}
+) {
+}

@@ -9,9 +9,9 @@
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/ikunkk02/death-rewind"
+		"sources": "https://github.com/ikunkk02-afk/death-rewind-mod"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/death_rewind/icon.png",
 	"environment": "client",
 	"entrypoints": {

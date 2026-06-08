@@ -26,6 +26,7 @@ public final class DeathRewindConfig {
 	private int invulnerableTicks = 60;
 	private int maxBlocksRestorePerTick = 128;
 	private boolean enableBlockRewind = true;
+	private Boolean optimizationModCompatibility = true;
 	private boolean enableClientEffect = true;
 	private boolean enableCooldown = false;
 	private boolean enableSaveNotification = true;
@@ -44,14 +45,21 @@ public final class DeathRewindConfig {
 		}
 	}
 
-	public static boolean isLocked() { return locked; }
+	public static boolean isLocked() {
+		return locked;
+	}
 
 	public static void unlock() {
 		locked = false;
 	}
 
-	public int effectiveMaxRewinds() { return locked ? lockedMaxRewinds : maxRewinds; }
-	public int effectiveRewindSeconds() { return locked ? lockedRewindSeconds : rewindSeconds; }
+	public int effectiveMaxRewinds() {
+		return locked ? lockedMaxRewinds : maxRewinds;
+	}
+
+	public int effectiveRewindSeconds() {
+		return locked ? lockedRewindSeconds : rewindSeconds;
+	}
 
 	public static void load() {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
@@ -89,11 +97,14 @@ public final class DeathRewindConfig {
 
 	private DeathRewindConfig sanitized() {
 		rewindSeconds = Math.max(1, rewindSeconds);
-		checkpointIntervalSeconds = Math.max(1, checkpointIntervalSeconds);
+		checkpointIntervalSeconds = Math.max(5, checkpointIntervalSeconds);
 		maxRewinds = Math.max(0, maxRewinds);
 		chunkRadius = Math.max(1, chunkRadius);
 		invulnerableTicks = Math.max(1, invulnerableTicks);
 		maxBlocksRestorePerTick = Math.max(1, maxBlocksRestorePerTick);
+		if (optimizationModCompatibility == null) {
+			optimizationModCompatibility = true;
+		}
 		cooldownSeconds = Math.max(0, cooldownSeconds);
 		return this;
 	}
@@ -115,7 +126,7 @@ public final class DeathRewindConfig {
 	}
 
 	public void setCheckpointIntervalSeconds(int seconds) {
-		checkpointIntervalSeconds = Math.max(1, seconds);
+		checkpointIntervalSeconds = Math.max(5, seconds);
 	}
 
 	public int maxRewinds() {
@@ -136,6 +147,10 @@ public final class DeathRewindConfig {
 
 	public void setEnableBlockRewind(boolean enable) {
 		enableBlockRewind = enable;
+	}
+
+	public void setOptimizationModCompatibility(boolean enable) {
+		optimizationModCompatibility = enable;
 	}
 
 	public void setEnableClientEffect(boolean enable) {
@@ -188,6 +203,10 @@ public final class DeathRewindConfig {
 
 	public boolean enableBlockRewind() {
 		return enableBlockRewind;
+	}
+
+	public boolean optimizationModCompatibility() {
+		return optimizationModCompatibility == null || optimizationModCompatibility;
 	}
 
 	public boolean enableClientEffect() {

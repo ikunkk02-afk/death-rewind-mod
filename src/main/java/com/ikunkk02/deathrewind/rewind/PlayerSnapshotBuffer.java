@@ -65,7 +65,7 @@ public final class PlayerSnapshotBuffer<T> {
 	}
 
 	/**
-	 * Finds the latest snapshot whose gameTime ≤ targetGameTime, across ALL generations.
+	 * Finds the latest snapshot whose gameTime <= targetGameTime, across ALL generations.
 	 * If no snapshot is old enough (e.g., player died before buffer filled enough),
 	 * returns the oldest available snapshot as a best-effort fallback.
 	 */

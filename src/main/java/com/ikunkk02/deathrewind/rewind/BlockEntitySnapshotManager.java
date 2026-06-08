@@ -6,10 +6,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Periodically snapshots block entity NBT within player chunk radius.
@@ -19,13 +23,18 @@ public final class BlockEntitySnapshotManager {
 	/** playerUuid -> snapshot list (ordered by gameTime) */
 	private static final Map<UUID, List<BlockEntitySnapshot>> SNAPSHOTS = new HashMap<>();
 
-	private BlockEntitySnapshotManager() {}
+	private BlockEntitySnapshotManager() {
+	}
 
 	public static void takeSnapshot(ServerPlayer player) {
 		DeathRewindConfig config = DeathRewindConfig.get();
-		if (player.gameMode() != GameType.SURVIVAL) return;
-		if (player.isDeadOrDying()) return;
-		if (RewindManager.isRewinding(player.getUUID())) return;
+		if (player.isDeadOrDying()) {
+			return;
+		}
+
+		if (RewindManager.isRewinding(player.getUUID())) {
+			return;
+		}
 
 		UUID uuid = player.getUUID();
 		long gameTime = player.level().getGameTime();
@@ -38,7 +47,9 @@ public final class BlockEntitySnapshotManager {
 		for (int cx = -radius; cx < radius; cx++) {
 			for (int cz = -radius; cz < radius; cz++) {
 				ChunkPos chunkPos = new ChunkPos(center.x() + cx, center.z() + cz);
-				if (!level.hasChunk(chunkPos.x(), chunkPos.z())) continue;
+				if (!level.hasChunk(chunkPos.x(), chunkPos.z())) {
+					continue;
+				}
 
 				for (BlockEntity be : level.getChunk(chunkPos.x(), chunkPos.z()).getBlockEntities().values()) {
 					CompoundTag tag = be.saveWithFullMetadata(level.registryAccess());
@@ -54,7 +65,9 @@ public final class BlockEntitySnapshotManager {
 			// Prune old snapshots
 			long cutoff = gameTime - config.rewindTicks() * 2;
 			List<BlockEntitySnapshot> list = SNAPSHOTS.get(uuid);
-			if (list != null) list.removeIf(s -> s.gameTime < cutoff);
+			if (list != null) {
+				list.removeIf(s -> s.gameTime < cutoff);
+			}
 		}
 	}
 
@@ -64,7 +77,9 @@ public final class BlockEntitySnapshotManager {
 	 */
 	public static Optional<Map<BlockPos, CompoundTag>> findSnapshot(UUID playerUuid, long targetGameTime) {
 		List<BlockEntitySnapshot> list = SNAPSHOTS.get(playerUuid);
-		if (list == null || list.isEmpty()) return Optional.empty();
+		if (list == null || list.isEmpty()) {
+			return Optional.empty();
+		}
 
 		BlockEntitySnapshot candidate = null;
 		for (BlockEntitySnapshot s : list) {
@@ -74,7 +89,9 @@ public final class BlockEntitySnapshotManager {
 				break;
 			}
 		}
-		if (candidate != null) return Optional.of(candidate.blockEntities);
+		if (candidate != null) {
+			return Optional.of(candidate.blockEntities);
+		}
 
 		// Fallback: oldest snapshot
 		return Optional.of(list.get(0).blockEntities);
@@ -84,7 +101,9 @@ public final class BlockEntitySnapshotManager {
 	public static void restoreBlockEntities(ServerLevel level, Map<BlockPos, CompoundTag> savedEntities) {
 		for (Map.Entry<BlockPos, CompoundTag> entry : savedEntities.entrySet()) {
 			BlockPos pos = entry.getKey();
-			if (!level.isLoaded(pos)) continue;
+			if (!level.isLoaded(pos)) {
+				continue;
+			}
 
 			CompoundTag tag = entry.getValue().copy();
 			// Re-create block entity from saved NBT
@@ -102,5 +121,6 @@ public final class BlockEntitySnapshotManager {
 		SNAPSHOTS.remove(playerUuid);
 	}
 
-	private record BlockEntitySnapshot(long gameTime, Map<BlockPos, CompoundTag> blockEntities) {}
+	private record BlockEntitySnapshot(long gameTime, Map<BlockPos, CompoundTag> blockEntities) {
+	}
 }

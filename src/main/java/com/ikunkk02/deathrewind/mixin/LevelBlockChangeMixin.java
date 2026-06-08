@@ -1,5 +1,6 @@
 package com.ikunkk02.deathrewind.mixin;
 
+import com.ikunkk02.deathrewind.DeathRewindMod;
 import com.ikunkk02.deathrewind.rewind.BlockRewindManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -12,10 +13,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Level.class)
 public abstract class LevelBlockChangeMixin {
-	@Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z", at = @At("HEAD"))
-	private void deathRewind$recordPreviousBlockState(BlockPos pos, BlockState state, int flags, int recursionLeft, CallbackInfoReturnable<Boolean> cir) {
+	@Inject(
+			method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
+			at = @At("HEAD")
+	)
+	private void deathRewind$recordPreviousBlockState(
+			BlockPos pos,
+			BlockState state,
+			int flags,
+			int recursionLeft,
+			CallbackInfoReturnable<Boolean> cir
+	) {
 		if ((Object) this instanceof ServerLevel level) {
-			BlockRewindManager.recordBeforeChange(level, pos, state);
+			try {
+				BlockRewindManager.recordBeforeChange(level, pos, state);
+			} catch (Exception e) {
+				DeathRewindMod.LOGGER.warn("Failed to record block change at {}", pos, e);
+			}
 		}
 	}
 }

@@ -6,8 +6,11 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 
 public final class ModSounds {
-	private static final Identifier ID = Identifier.fromNamespaceAndPath(DeathRewindMod.MOD_ID, "rewind_bell");
+	private static final Identifier ID = DeathRewindMod.id("rewind_bell");
 	public static final SoundEvent REWIND_BELL = SoundEvent.createVariableRangeEvent(ID);
+
+	private ModSounds() {
+	}
 
 	public static void register() {
 		Registry.register(BuiltInRegistries.SOUND_EVENT, ID, REWIND_BELL);

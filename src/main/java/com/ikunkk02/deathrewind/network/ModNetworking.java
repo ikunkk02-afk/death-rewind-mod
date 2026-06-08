@@ -3,6 +3,7 @@ package com.ikunkk02.deathrewind.network;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,7 +44,7 @@ public final class ModNetworking {
 		}
 	}
 
-	private static void send(ServerPlayer player, net.minecraft.network.protocol.common.custom.CustomPacketPayload payload) {
+	private static void send(ServerPlayer player, CustomPacketPayload payload) {
 		if (ServerPlayNetworking.canSend(player, payload.type())) {
 			ServerPlayNetworking.send(player, payload);
 		}
