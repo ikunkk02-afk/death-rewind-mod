@@ -42,7 +42,7 @@ public final class DeathRewindConfigScreen {
 		general.addEntry(entry.startIntSlider(
 						Component.translatable("text.death_rewind.config.checkpoint_interval"),
 						config.checkpointIntervalSeconds(),
-						1,
+						5,
 						60
 				)
 				.setDefaultValue(5)

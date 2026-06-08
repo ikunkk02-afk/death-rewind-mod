@@ -97,7 +97,7 @@ public final class DeathRewindConfig {
 
 	private DeathRewindConfig sanitized() {
 		rewindSeconds = Math.max(1, rewindSeconds);
-		checkpointIntervalSeconds = Math.max(1, checkpointIntervalSeconds);
+		checkpointIntervalSeconds = Math.max(5, checkpointIntervalSeconds);
 		maxRewinds = Math.max(0, maxRewinds);
 		chunkRadius = Math.max(1, chunkRadius);
 		invulnerableTicks = Math.max(1, invulnerableTicks);
@@ -126,7 +126,7 @@ public final class DeathRewindConfig {
 	}
 
 	public void setCheckpointIntervalSeconds(int seconds) {
-		checkpointIntervalSeconds = Math.max(1, seconds);
+		checkpointIntervalSeconds = Math.max(5, seconds);
 	}
 
 	public int maxRewinds() {
